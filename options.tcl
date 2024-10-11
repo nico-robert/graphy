@@ -257,6 +257,8 @@ proc graphy::label {d key} {
     setdef options fontColor   -validvalue {}  -type str       -default "rgba(70,70,70,1)"
     setdef options fontWeight  -validvalue {}  -type str       -default "normal"
     setdef options formatter   -validvalue {}  -type str|null  -default "nothing"
+    setdef options nameRotate  -validvalue {}  -type num       -default 0
+    setdef options align       -validvalue {}  -type str       -default "top"
     #...
 
     return [newDict [merge $options $d]]

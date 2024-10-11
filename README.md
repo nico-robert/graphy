@@ -56,3 +56,6 @@ Release :
 -------------------------
 *  **05-oct-2024** : 0.1b1
     - Initial release.
+*  **11-oct-2024** : 0.1b2
+    - Add vertical `stacked` bar series.
+    - Add examples vertical `stacked` bar.

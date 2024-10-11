@@ -1,13 +1,16 @@
 # Copyright (c) 2024 Nicolas ROBERT.
 # Distributed under MIT license. Please see LICENSE for details.
 
-# 05-oct-2024 : v1.0b1 Initial release
+# 05-oct-2024 : 1.0b1 Initial release
+# 11-oct-2024 : 1.0b2
+                # Add vertical stacked bar series.
+                # Add examples vertical `stacked` bar.
 
 package require Tcl 8.6
 package require pix 0.3
 
 namespace eval graphy {
-    variable version              "1.0b1"
+    variable version              "1.0b2"
     variable upid
     variable tdir                 [file dirname [file normalize [info script]]]
     variable PI                   [expr {acos(-1)}]

@@ -1,7 +1,7 @@
 # Copyright (c) 2024 Nicolas ROBERT.
 # Distributed under MIT license. Please see LICENSE for details.
 
-package ifneeded graphy 1.0b1 [list apply {dir {
+package ifneeded graphy 1.0b2 [list apply {dir {
 
     source [file join $dir graphy.tcl]
     source [file join $dir charts.tcl]

@@ -438,8 +438,8 @@ proc graphy::isThousandFormat {axisconfig} {
     set opts [$axisconfig get]
 
     if {[graphy::dictTypeOf $opts -axisLabel formatter] ne "null"} {
-        set value [graphy::dictGet $opts -axisLabel formatter]
-        if {[string match *$::graphy::THOUSANDS_FORMAT_LABEL* $value]} {
+        set valueformat [graphy::dictGet $opts -axisLabel formatter]
+        if {[string match *$::graphy::THOUSANDS_FORMAT_LABEL* $valueformat]} {
             set thousands_format true
         }
     }
@@ -753,7 +753,7 @@ proc graphy::formatSeriesValue {value formatter} {
     #
     # Returns formatted value.
 
-    if {$formatter eq $::graphy::THOUSANDS_FORMAT_LABEL} {
+    if {[string match *$::graphy::THOUSANDS_FORMAT_LABEL* $formatter]} {
         return [graphy::thousandsFormatFloat $value]
     } else {
         return [graphy::format_float $value]
@@ -970,17 +970,4 @@ proc graphy::reDraw {W chart self} {
 
     set upid($chart,redraw) [after 60 graphy::reDraw $W $chart $self]
 
-}
-
-proc graphy::listNs {{parentns ::}} {
-    # From https://wiki.tcl-lang.org/page/namespace
-    #
-    # Returns list of all namespaces.
-
-    set result {}
-    foreach ns [namespace children $parentns] {
-        lappend result {*}[listNs $ns] $ns
-    }
-
-    return $result
 }

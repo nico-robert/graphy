@@ -230,7 +230,7 @@ oo::class create graphy::Charts {
                 set legend_top [expr {$legend_top + $legend_unit_height}]
             }
 
-            if {[graphy::dictGet $optsSeries -type] eq "bar"} {
+            if {[$series type] eq "bar"} {
                 set legend_category rect
                 set fillcolor $color
             } else {
@@ -304,17 +304,56 @@ oo::class create graphy::Charts {
     method GetYAxisValues {index} {
         
         set y_axis_config [[my GetYAxisConfig $index] get]
-        set data_list {}
-        foreach series [my get seriesList] {
+        set lseries {}
+        set series_list [my get seriesList]
+        set series_Barlist [lmap mys $series_list {if {[$mys type] eq "bar"} {list $mys} else {continue}}]
+
+        set d [dict create]
+        foreach series $series_list {
+            dict set d $series [graphy::dictGet [$series get] -data]
+        }
+
+        foreach series $series_list {
             set optsSeries [$series get]
             if {[graphy::dictGet $optsSeries -yAxisIndex] == $index} {
-                append data_list "[graphy::dictGet $optsSeries -data] "
+
+                # Stacked bars.
+                if {[$series type] eq "bar"} {
+                    if {[graphy::dictGet $optsSeries -stacked] && [llength $lseries]} {
+                        set index_series [lsearch -exact $series_Barlist $series]
+                        set series_Bms1  [lindex $series_Barlist $index_series-1]
+                        if {
+                            ($series_Bms1 ne "") && 
+                            ([graphy::dictGet [$series_Bms1 get] -yAxisIndex] == $index)
+                        } {
+                            set newlist {}
+                            set dsms    [dict get $d $series_Bms1]
+                            set dseries [dict get $d $series]
+                            foreach vs $dseries vsm1 $dsms {
+                                if {$vsm1 in {null _}} {set vsm1 0}
+                                if {$vs in {null _}} {set vs 0}
+                                lappend newlist [expr {$vs + $vsm1}]
+                            }
+                            if {[llength $newlist]} {
+                                dict set d $series $newlist
+                            }
+                        }
+                    }
+                }
+                lappend lseries $series
             }
         }
 
-        if {$data_list eq ""} {return [list {data {} min 0.0 max 0.0} 0.0]}
+        if {$lseries eq ""} {
+            return [list {data {} min 0.0 max 0.0} 0.0]
+        } else {
+            set data_list {}
+            foreach {k value} $d {
+                if {$k in $lseries} {lappend data_list $value}
+            }
+        }
 
-        dict set params data_list        $data_list
+        dict set params data_list        [join $data_list " "]
         dict set params split_number     [graphy::dictGet $y_axis_config -splitNumber]
         dict set params min              [graphy::dictGet $y_axis_config -min]
         dict set params max              [graphy::dictGet $y_axis_config -max]
@@ -650,7 +689,6 @@ oo::class create graphy::Charts {
             foreach label $labelitems {
                 lassign [dict get $label point] x y
                 set text [dict get $label text]
-                set textformat [graphy::formatSeriesValue $text $formatter]
 
                 $c text [graphy::Component::Text new  \
                     text        $text \
@@ -960,13 +998,6 @@ oo::class create graphy::Charts {
         set indexLine 0
         set indexBar 0
         set indexSeries 0
-        set series_bar_len 0
-        foreach series [my get seriesList] {
-            set optsSeries [$series get]
-            if {[graphy::dictGet $optsSeries -type] eq "bar"} {
-                incr series_bar_len
-            }
-        }
 
         # Populate series.
         foreach series [my get seriesList] {
@@ -976,7 +1007,7 @@ oo::class create graphy::Charts {
                 continue
             }
 
-            switch -exact [graphy::dictGet $optsSeries -type] {
+            switch -exact [$series type] {
                 line {
                     # line point
                     set c_child [$c child [graphy::newBox \
@@ -1011,7 +1042,7 @@ oo::class create graphy::Charts {
                         $c_child \
                         [self] \
                         $series \
-                        $indexBar $indexSeries $series_bar_len \
+                        $indexBar $indexSeries \
                         $y_axis_values_list \
                         $max_height \
                         $xOpts \

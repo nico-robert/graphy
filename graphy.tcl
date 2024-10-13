@@ -1,5 +1,6 @@
-# Copyright (c) 2024 Nicolas ROBERT.
-# Distributed under MIT license. Please see LICENSE for details.
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 # 05-oct-2024 : 1.0b1 Initial release
 # 11-oct-2024 : 1.0b2

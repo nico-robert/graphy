@@ -12,7 +12,7 @@ oo::class create graphy::XAxis {
     
         if {[llength $args] % 2} graphy::errorEvenArgs
 
-        graphy::setdef options -data           -validvalue {}  -type str       -default {}
+        graphy::setdef options -data           -validvalue {}  -type str|null  -default "nothing"
         graphy::setdef options -height         -validvalue {}  -type num       -default 30
         graphy::setdef options -margin         -validvalue {}  -type dict.b    -default [graphy::newBox]
         graphy::setdef options -show           -validvalue {}  -type bool      -default "True"
@@ -46,6 +46,7 @@ oo::class create graphy::YAxis {
 
         if {[llength $args] % 2} graphy::errorEvenArgs
 
+        graphy::setdef options -data           -validvalue {}  -type str|null  -default "nothing"
         graphy::setdef options -show           -validvalue {}  -type bool      -default "True"
         graphy::setdef options -axisLabel      -validvalue {}  -type dict      -default [graphy::axisLabel $args]
         graphy::setdef options -axisLine       -validvalue {}  -type dict      -default [graphy::axisLine $args]

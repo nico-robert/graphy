@@ -488,8 +488,8 @@ proc graphy::xAxisValues {params} {
     # Returns axis values.
 
     set split_number [dict get $params split_number]
-    set min Inf
-    set max -Inf
+    set min 0.0
+    set max 0.0
 
     if {!$split_number} {
         set split_number 6

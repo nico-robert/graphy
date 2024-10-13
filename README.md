@@ -59,3 +59,6 @@ Release :
 *  **11-oct-2024** : 0.1b2
     - Add vertical `stacked` bar series.
     - Add examples vertical `stacked` bar.
+*  **13-oct-2024** : 0.1b3
+    - Updating the `MIT` license to `MPL 2.0`, to match the derived code.
+    - Cosmetic changes.

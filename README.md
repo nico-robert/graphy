@@ -50,7 +50,7 @@ Acknowledgments :
 
 License :
 -------------------------
-**graphy** is covered under the terms of the [MIT](LICENSE) license.
+[MPL 2.0](LICENSE) license.
 
 Release :
 -------------------------

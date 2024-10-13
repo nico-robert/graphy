@@ -141,8 +141,8 @@ proc graphy::grid {d} {
 
     setdef options showY       -validvalue {}  -type bool      -default "True"
     setdef options showX       -validvalue {}  -type bool      -default "False"
-    setdef options hiddenX     -validvalue {}  -type list|null  -default "nothing"
-    setdef options hiddenY     -validvalue {}  -type list|null  -default "nothing"
+    setdef options hiddenX     -validvalue {}  -type list|null -default "nothing"
+    setdef options hiddenY     -validvalue {}  -type list|null -default "nothing"
     setdef options lineStyle   -validvalue {}  -type dict      -default [graphy::lineStyle $d "lineStyle"]
     #...
     
@@ -463,7 +463,7 @@ proc graphy::axisLine {d} {
     set show "True"
     
     if {$levelP eq "YAxis.axisLine"} {
-        set show false
+        set show "False"
     }
 
     setdef options show       -validvalue {}  -type bool -default $show

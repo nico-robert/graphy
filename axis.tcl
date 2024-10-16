@@ -23,6 +23,8 @@ oo::class create graphy::XAxis {
         graphy::setdef options -boundaryGap    -validvalue {}  -type bool      -default "True"
         graphy::setdef options -type           -validvalue {}  -type str       -default "category"
         graphy::setdef options -splitNumber    -validvalue {}  -type num       -default 6
+        graphy::setdef options -min            -validvalue {}  -type num|null  -default "nothing"
+        graphy::setdef options -max            -validvalue {}  -type num|null  -default "nothing"
         graphy::setdef options -name           -validvalue {}  -type str|null  -default "nothing"
         graphy::setdef options -nameLocation   -validvalue {}  -type str       -default "middle"
         graphy::setdef options -nameTextStyle  -validvalue {}  -type dict      -default [graphy::nameTextStyle $args]

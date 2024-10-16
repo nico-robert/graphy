@@ -448,7 +448,7 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                     }
                 }
             }
-            barSeries - background {
+            barSeries - horizontalbarSeries - background {
                 foreach {type element} $data {
                     switch -exact $type {
                         roundedrect {lappend ctxpath $type [graphy::drawRoundedRect $ctx $element $chart]}

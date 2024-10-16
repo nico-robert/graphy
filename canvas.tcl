@@ -322,15 +322,13 @@ oo::class create graphy::Canvas {
         foreach {key obj} [my components] {
             if {$obj eq ""} {error "no $key object"}
             switch -exact $key {
-                barSeries - lineSeries - marklineSeries - labelSeries {
-                    
+                barSeries - lineSeries - marklineSeries - labelSeries - horizontalbarSeries {
                     foreach objCompo [dict get $obj components] {
                         set data [$objCompo entity]
                         if {$data eq ""} {error "no $key object"}
                         lappend entities $key $data
                     }
                 }
-
                 default {
                     foreach objCompo $obj {
                         set data [$objCompo entity]

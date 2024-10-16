@@ -1386,7 +1386,7 @@ oo::class create graphy::Component::Axis {
                     switch -exact [my get name_loc] {
                         "middle" {
                             set decx  [expr {([graphy::heightBox $bname] / 2.0) + 5.0}]
-                            set decy  [expr {($top + $height) / 2.0}]
+                            set decy  [expr {(($top + $height) / 2.0) + ([graphy::widthBox $bname] / 2.0) - 5.0}]
                             set angle [expr {270 * ($::graphy::PI / 180.0)}]
                             set text_anchor "CenterAlign"
                             set x 0.0 ; set y 0.0

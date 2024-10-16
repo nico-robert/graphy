@@ -436,7 +436,12 @@ proc graphy::isThousandFormat {axisconfig} {
     # Returns true if thousands format is used,
     # false otherwise.
     set thousands_format false
-    set opts [$axisconfig get]
+
+    if {[graphy::isAObject $axisconfig]} {
+        set opts [$axisconfig get]
+    } else {
+        set opts $axisconfig
+    }
 
     if {[graphy::dictTypeOf $opts -axisLabel formatter] ne "null"} {
         set valueformat [graphy::dictGet $opts -axisLabel formatter]
@@ -480,22 +485,22 @@ proc graphy::formatParamsValue {params value} {
     return [graphy::format_float $value]$unit
 }
 
-proc graphy::xAxisValues {params} {
-    # Get X axis values.
+proc graphy::axisValues {params} {
+    # Get Y or X axis values.
     #
-    # params - X axis params
+    # params - Y or X axis params
     #
     # Returns axis values.
-
-    set split_number [dict get $params split_number]
     set min 0.0
     set max 0.0
+    set split_number [dict get $params split_number]
 
     if {!$split_number} {
         set split_number 6
     }
 
     foreach value [dict get $params data_list] {
+        if {$value in {null _}} {continue}
 
         if {![string is double -strict $value]} {
             error "wrong # value:\
@@ -504,43 +509,6 @@ proc graphy::xAxisValues {params} {
 
         if {$value < $min} {set min $value}
         if {$value > $max} {set max $value}
-    }
-
-    set unit [expr {($max - $min) / double($split_number)}]
-
-    set split_unit $unit
-    set data {}
-    for {set i 0} {$i <= $split_number} {incr i} {
-        set value    [expr {$min + double($i) * $unit}]
-        lappend data [graphy::thousandsFormatFloat $value]
-    }
-
-    dict set axisValues data $data
-    dict set axisValues min  $min
-    dict set axisValues max  [expr {$min + $split_unit * $split_number}]
-
-    return $axisValues
-
-}
-
-proc graphy::yAxisValues {params} {
-    # Get Y axis values.
-    #
-    # params - Y axis params
-    #
-    # Returns axis values.
-    set min 0.0
-    set max 0.0
-    set split_number [dict get $params split_number]
-
-    if {!$split_number} {
-        set split_number 6
-    }
-
-    foreach item [dict get $params data_list] {
-        if {$item in {null _}} {continue}
-        if {$item < $min} {set min $item}
-        if {$item > $max} {set max $item}
     }
 
     set is_custom_min false
@@ -567,7 +535,6 @@ proc graphy::yAxisValues {params} {
             set unit [expr {$ceil_value / 10.0}]
         } else {
             set new_unit [expr {int($unit)}]
-            set adjustUnit [graphy::adjustUnit [expr {int($unit)}] 10]
 
             if {$new_unit < 10} {
                 set new_unit [graphy::adjustUnit $new_unit 2]

@@ -120,6 +120,9 @@ oo::class create graphy::Charts {
             "barSeries" {
                 set series [graphy::series::Bar new {*}$args]
             }
+            "horizontalBarSeries" {
+                set series [graphy::series::HorizontalBar new {*}$args]
+            }
             default {
                 error "unknown series type: '$type'"
             }
@@ -305,63 +308,75 @@ oo::class create graphy::Charts {
     method GetYAxisValues {index} {
         
         set y_axis_config [[my GetYAxisConfig $index] get]
-        set lseries {}
-        set series_list [my get seriesList]
-        set series_Barlist [lmap mys $series_list {if {[$mys type] eq "bar"} {list $mys} else {continue}}]
 
-        set d [dict create]
-        foreach series $series_list {
-            dict set d $series [graphy::dictGet [$series get] -data]
-        }
+        if {[graphy::dictGet $y_axis_config -type] eq "value"} {
+            set lseries {}
+            set series_Barlist {}
+            set d [dict create]
+            set series_list [my get seriesList]
 
-        foreach series $series_list {
-            set optsSeries [$series get]
-            if {[graphy::dictGet $optsSeries -yAxisIndex] == $index} {
-
-                # Stacked bars.
+            foreach series $series_list {
+                dict set d $series [graphy::dictGet [$series get] -data]
                 if {[$series type] eq "bar"} {
-                    if {[graphy::dictGet $optsSeries -stacked] && [llength $lseries]} {
-                        set index_series [lsearch -exact $series_Barlist $series]
-                        set series_Bms1  [lindex $series_Barlist $index_series-1]
-                        if {
-                            ($series_Bms1 ne "") && 
-                            ([graphy::dictGet [$series_Bms1 get] -yAxisIndex] == $index)
-                        } {
-                            set newlist {}
-                            set dsms    [dict get $d $series_Bms1]
-                            set dseries [dict get $d $series]
-                            foreach vs $dseries vsm1 $dsms {
-                                if {$vsm1 in {null _}} {set vsm1 0}
-                                if {$vs in {null _}} {set vs 0}
-                                lappend newlist [expr {$vs + $vsm1}]
-                            }
-                            if {[llength $newlist]} {
-                                dict set d $series $newlist
+                    lappend series_Barlist $series
+                }
+            }
+
+            foreach series $series_list {
+                set optsSeries [$series get]
+                if {[graphy::dictGet $optsSeries -yAxisIndex] == $index} {
+
+                    # Stacked vertical bars.
+                    if {[$series type] eq "bar"} {
+                        if {[graphy::dictGet $optsSeries -stacked] && [llength $lseries]} {
+                            set index_series [lsearch -exact $series_Barlist $series]
+                            set series_Bms1  [lindex $series_Barlist $index_series-1]
+                            if {
+                                ($series_Bms1 ne "") && 
+                                ([graphy::dictGet [$series_Bms1 get] -yAxisIndex] == $index)
+                            } {
+                                set newlist {}
+                                set dsms    [dict get $d $series_Bms1]
+                                set dseries [dict get $d $series]
+                                foreach vs $dseries vsm1 $dsms {
+                                    if {$vsm1 in {null _}} {set vsm1 0}
+                                    if {$vs in {null _}} {set vs 0}
+                                    lappend newlist [expr {$vs + $vsm1}]
+                                }
+                                if {[llength $newlist]} {
+                                    dict set d $series $newlist
+                                }
                             }
                         }
                     }
+                    lappend lseries $series
                 }
-                lappend lseries $series
             }
-        }
 
-        if {$lseries eq ""} {
-            return [list {data {} min 0.0 max 0.0} 0.0]
+            if {$lseries eq ""} {
+                return [list {data {} min 0.0 max 0.0} 0.0]
+            } else {
+                set data_list {}
+                foreach {k value} $d {
+                    if {$k in $lseries} {lappend data_list $value}
+                }
+            }
+
+            dict set params data_list        [join $data_list " "]
+            dict set params split_number     [graphy::dictGet $y_axis_config -splitNumber]
+            dict set params min              [graphy::dictGet $y_axis_config -min]
+            dict set params max              [graphy::dictGet $y_axis_config -max]
+            dict set params thousands_format [graphy::isThousandFormat [my GetYAxisConfig $index]]
+            dict set params reverse          [graphy::dictGet $y_axis_config -reverse]
+            
+            set y_axis_values    [graphy::axisValues $params]
         } else {
-            set data_list {}
-            foreach {k value} $d {
-                if {$k in $lseries} {lappend data_list $value}
+            if {[graphy::dictTypeOf $y_axis_config -data] eq "null"} {
+                error "no data for Y axis when type is set to 'category'"
             }
+            dict set y_axis_values data [graphy::dictGet $y_axis_config -data]
         }
 
-        dict set params data_list        [join $data_list " "]
-        dict set params split_number     [graphy::dictGet $y_axis_config -splitNumber]
-        dict set params min              [graphy::dictGet $y_axis_config -min]
-        dict set params max              [graphy::dictGet $y_axis_config -max]
-        dict set params thousands_format [graphy::isThousandFormat [my GetYAxisConfig $index]]
-        dict set params reverse          [graphy::dictGet $y_axis_config -reverse]
-        
-        set y_axis_values    [graphy::yAxisValues $params]
         set y_axis_formatter [graphy::dictGet $y_axis_config -axisLabel formatter]
         set font_family      [graphy::dictGet $y_axis_config -axisLabel fontFamily]
         set axis_font_size   [graphy::dictGet $y_axis_config -axisLabel fontSize]
@@ -417,13 +432,73 @@ oo::class create graphy::Charts {
         set data [graphy::dictGet $x_axis_config -data] 
 
         if {[graphy::dictGet $x_axis_config -type] eq "category"} {
+            if {[graphy::dictTypeOf $x_axis_config -data] eq "null"} {
+                error "no data for X axis when type is set to 'category'"
+            }
             return [list data $data]
+        } else {
+            if {[graphy::dictTypeOf $x_axis_config -data] eq "null"} {
+                set lseries {}
+                set series_Barlist {}
+                set d [dict create]
+                set series_list [my get seriesList]
+
+                foreach series $series_list {
+                    dict set d $series [graphy::dictGet [$series get] -data]
+                    if {[$series type] eq "horizontalbar"} {
+                        lappend series_Barlist $series
+                    }
+                }
+
+                set data_list {}
+                foreach series $series_list {
+                    set optsSeries [$series get]
+
+                    # Stacked horizontal bars.
+                    if {[$series type] eq "horizontalbar"} {
+                        if {[graphy::dictGet $optsSeries -stacked] && [llength $lseries]} {
+                            set index_series [lsearch -exact $series_Barlist $series]
+                            set series_Bms1  [lindex $series_Barlist $index_series-1]
+                            if {$series_Bms1 ne ""} {
+                                set newlist {}
+                                set dsms    [dict get $d $series_Bms1]
+                                set dseries [dict get $d $series]
+                                foreach vs $dseries vsm1 $dsms {
+                                    if {$vsm1 in {null _}} {set vsm1 0}
+                                    if {$vs in {null _}} {set vs 0}
+                                    lappend newlist [expr {$vs + $vsm1}]
+                                }
+                                if {[llength $newlist]} {
+                                    dict set d $series $newlist
+                                }
+                            }
+                        }
+                    }
+                    lappend lseries $series
+                }
+
+                if {$lseries eq ""} {
+                    error "no data series for X axis when type is set to 'value'"
+                } else {
+                    set data_list {}
+                    foreach {k value} $d {
+                        if {$k in $lseries} {lappend data_list $value}
+                    }
+                }
+                set data [join $data_list " "]
+            } else {
+                set data $data
+            }
         }
 
-        dict set params data_list     $data
-        dict set params split_number  [graphy::dictGet $x_axis_config -splitNumber]
+        dict set params data_list        $data
+        dict set params split_number     [graphy::dictGet $x_axis_config -splitNumber]
+        dict set params min              [graphy::dictGet $x_axis_config -min]
+        dict set params max              [graphy::dictGet $x_axis_config -max]
+        dict set params reverse          "False"
+        dict set params thousands_format [graphy::isThousandFormat $x_axis_config]
 
-        return [graphy::xAxisValues $params]
+        return [graphy::axisValues $params]
 
     }
 
@@ -533,34 +608,50 @@ oo::class create graphy::Charts {
             return {}
         }
 
-        set y_axis_config     [[my GetYAxisConfig 0] get]
-        set axis_split_number [graphy::dictGet $y_axis_config -splitNumber]
+        set horizontals 0
+        set verticals 0
+        set hidden_horizontals null
+        set hidden_verticals null
+
+        # Show Y grid
+        if {[graphy::dictGet $opts grid showY]} {
+            set y_axis_config [[my GetYAxisConfig 0] get]
+
+            if {[graphy::dictGet $y_axis_config -type] eq "category"} {
+                set data_categories [graphy::dictGet $y_axis_config -data]
+                set horizontals     [llength $data_categories]
+            } else {
+                set horizontals [graphy::dictGet $y_axis_config -splitNumber]
+            }
+
+            if {[graphy::dictTypeOf $opts grid hiddenY] eq "null"} {
+                set hidden_horizontals $horizontals
+            } else {
+                set hidden_horizontals {*}[graphy::dictGet $opts grid hiddenY]
+            }
+        }
+        # Show X grid
+        if {[graphy::dictGet $opts grid showX]} {
+            set verticals [dict get [$xAxisComponents options] split_number]
+            if {[graphy::dictTypeOf $opts grid hiddenX] eq "null"} {
+                set hidden_verticals $horizontals
+            } else {
+                set hidden_verticals {*}[graphy::dictGet $opts grid hiddenX]
+            }
+        }
+
         set dashes [expr {
             [graphy::dictTypeOf $opts grid lineStyle dashes] eq "null" 
             ? {} 
             : [graphy::dictGet $opts grid lineStyle dashes]
         }]
 
-        if {[graphy::dictTypeOf $opts grid hiddenY] eq "null"} {
-            set hidden_horizontals $axis_split_number
-        } else {
-            set hidden_horizontals {*}[graphy::dictGet $opts grid hiddenY]
-        }
-
-        set verticals 0
-        set hidden_verticals null
-
-        if {[graphy::dictGet $opts grid showX]} {
-            set verticals [dict get [$xAxisComponents options] split_number]
-            set hidden_verticals {*}[graphy::dictGet $opts grid hiddenX]
-        }
-
         set gr [graphy::Component::Grid new \
             right              $axis_width \
             bottom             $axis_height \
             color              [graphy::dictGet $opts grid lineStyle color] \
             stroke_width       [graphy::dictGet $opts grid lineStyle width] \
-            horizontals        $axis_split_number \
+            horizontals        $horizontals \
             hidden_horizontals $hidden_horizontals \
             verticals          $verticals \
             hidden_verticals   $hidden_verticals \
@@ -579,14 +670,22 @@ oo::class create graphy::Charts {
         set y_axis_config [$config get]
         set c_child       [$c child [graphy::newBox 0]]
 
+        if {[graphy::dictGet $y_axis_config -type] eq "category"} {
+            set name_align   center
+            set split_number [llength $data]
+        } else {
+            set name_align   [graphy::dictGet $y_axis_config -axisLabel align]
+            set split_number [graphy::dictGet $y_axis_config -splitNumber]
+        }
+
         set yaxis [graphy::Component::Axis new \
             position      [expr {$index > 0 ? "right" : "left"}] \
             type          [expr {$index > 0 ? "yright" : "yleft"}] \
             height        $axis_height \
             width         $axis_width \
-            name_align    [graphy::dictGet $y_axis_config -axisLabel align] \
+            name_align    $name_align \
             data          $data \
-            split_number  [graphy::dictGet $y_axis_config -splitNumber] \
+            split_number  $split_number \
             font_family   [graphy::dictGet $y_axis_config -axisLabel fontFamily] \
             stroke_color  [graphy::dictGet $y_axis_config -axisLine  lineStyle color] \
             name_gap      [graphy::dictGet $y_axis_config -axisLabel nameGap] \
@@ -603,7 +702,6 @@ oo::class create graphy::Charts {
             name_axis     [graphy::dictGet $y_axis_config -name] \
             name_loc      [graphy::dictGet $y_axis_config -nameLocation] \
             name_style    [graphy::dictGet $y_axis_config -nameTextStyle] \
-            show_axis     [graphy::dictGet $y_axis_config -axisLine show] \
         ]
 
         $c_child axis $yaxis
@@ -970,7 +1068,7 @@ oo::class create graphy::Charts {
         }
 
         set xParamsData [my GetXAxisValues]
-        
+
         # Render x axis
         if {[graphy::dictGet $xOpts -show]} {
             set c_child [$c child [graphy::newBox \
@@ -996,20 +1094,19 @@ oo::class create graphy::Charts {
         set max_height [expr {[$c height] - $x_axis_height}]
         set y_axis_values_list [list $left_y_axis_values $right_y_axis_values]
 
-        set indexLine 0
-        set indexBar 0
+        set indexLine   0
+        set indexBar    0
+        set indexHBar   0
         set indexSeries 0
 
         # Populate series.
         foreach series [my get seriesList] {
             set optsSeries [$series get]
 
-            if {![graphy::dictGet $optsSeries -show]} {
-                continue
-            }
+            if {![graphy::dictGet $optsSeries -show]} {continue}
 
             switch -exact [$series type] {
-                line {
+                "line" {
                     # line point
                     set c_child [$c child [graphy::newBox \
                         left $left_y_axis_width \
@@ -1030,7 +1127,7 @@ oo::class create graphy::Charts {
 
                     incr indexLine
                 }
-                bar {
+                "bar" {
                     # Bar
                     set c_child [$c child [graphy::newBox \
                         left $left_y_axis_width \
@@ -1050,6 +1147,37 @@ oo::class create graphy::Charts {
                     ]
                     $c lappend barSeries [list series $series components [$c_child components]]
                     incr indexBar
+                }
+                "horizontalbar" {
+                    # Bar
+                    set dec 0.0
+                    set yconfig0 [[my GetYAxisConfig 0] get]
+
+                    if {[graphy::dictGet $yconfig0 -axisLine show]} {    
+                        set wl [graphy::dictGet $yconfig0 -axisLine lineStyle width]
+                        set dec [expr {$wl + 1.0}]
+                    }
+
+                    set c_child [$c child [graphy::newBox \
+                        left [expr {$left_y_axis_width + $dec}] \
+                        right 0 \
+                        bottom $x_axis_height \
+                        top 0 \
+                    ]]
+
+                    set max_width  [$c_child width]
+
+                    lappend series_labels_list [graphy::horizontalBarSeries \
+                        $c_child \
+                        [self] \
+                        $series \
+                        $indexHBar $indexSeries \
+                        $y_axis_values_list \
+                        $max_width \
+                        $xParamsData \
+                    ]
+                    $c lappend horizontalbarSeries [list series $series components [$c_child components]]
+                    incr indexHBar
                 }
             }
             incr indexSeries

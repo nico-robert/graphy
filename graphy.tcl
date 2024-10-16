@@ -9,12 +9,16 @@
 # 13-oct-2024 : 1.0b3
                 # Updating the `MIT` license to `MPL 2.0`, to match the derived code.
                 # Cosmetic changes.
+# 16-oct-2024 : 1.0b4
+                # Add horizontal and stacked bar series.
+                # Add examples horizontal and stacked bar.
+                # Cosmetic changes.
 
 package require Tcl 8.6
 package require pix 0.3
 
 namespace eval graphy {
-    variable version              "1.0b3"
+    variable version              "1.0b4"
     variable upid
     variable tdir                 [file dirname [file normalize [info script]]]
     variable PI                   [expr {acos(-1)}]

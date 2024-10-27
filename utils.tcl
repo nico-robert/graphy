@@ -482,13 +482,14 @@ proc graphy::formatParamsValue {params value} {
         set value $value
     }
 
-    return [graphy::format_float $value]$unit
+    return [graphy::formatFloat $value]$unit
 }
 
-proc graphy::axisValues {params} {
+proc graphy::axisValues {params type} {
     # Get Y or X axis values.
     #
     # params - Y or X axis params
+    # type   - Y or X
     #
     # Returns axis values.
     set min 0.0
@@ -511,21 +512,15 @@ proc graphy::axisValues {params} {
         if {$value > $max} {set max $value}
     }
 
-    set is_custom_min false
     if {[dict get $params min] ne "nothing"} {
-        if {[dict get $params min] < $min} {
             set min [dict get $params min]
-            set is_custom_min true
-        }
     }
 
     set is_custom_max false
     if {[dict get $params max] ne "nothing"} {
-        if {[dict get $params max] > $max} {
             set max [dict get $params max]
             set is_custom_max true
         }
-    }
 
     set unit [expr {($max - $min) / double($split_number)}]
 
@@ -579,21 +574,23 @@ proc graphy::thousandsFormatFloat {value} {
     # From wiki (always !!) 
     # https://wiki.tcl-lang.org/page/commas+added+to+numbers
 
-    if {$value < 1000} {return [graphy::format_float $value]}
+    if {$value < 1000} {
+        return [graphy::formatFloat $value]
+    }
 
     set value [format %.0f $value]
 
     return [regsub -all \\d(?=(\\d{3})+([regexp -inline {\.\d*$} $value]$)) $value {\0,}]
 }
 
-proc graphy::format_float {value} {
+proc graphy::formatFloat {value} {
 
-    set str [format %.1f $value]
-    if {[string range $str end-1 end] eq ".0"} {
-        return [string range $str 0 end-2]
+    set fstr [format %.1f $value]
+    if {[string range $fstr end-1 end] eq ".0"} {
+        return [string range $fstr 0 end-2]
     }
 
-    return $str
+    return $fstr
 }
 
 
@@ -663,8 +660,8 @@ proc graphy::getOffsetWidth {x_axis_values value max_width} {
     set min [dict get $x_axis_values min]
     set max [dict get $x_axis_values max]
     
-    set offset  [expr {double($min - $max)}]
-    set percent [expr {($value - $max) / $offset}]
+    set offset  [expr {double($max - $min)}]
+    set percent [expr {($max - $value) / $offset}]
     
     return [expr {$max_width - $percent * $max_width}]
 
@@ -724,7 +721,7 @@ proc graphy::formatSeriesValue {value formatter} {
     if {[string match *$::graphy::THOUSANDS_FORMAT_LABEL* $formatter]} {
         return [graphy::thousandsFormatFloat $value]
     } else {
-        return [graphy::format_float $value]
+        return [graphy::formatFloat $value]
     }
 }
 
@@ -776,11 +773,12 @@ proc graphy::formatPixel {value strokewidth} {
     # strokewidth - stroke width
     #
     # Returns formatted pixel.
+
     if {$strokewidth > 1} {
         return $value
     }
 
-    set pixel [expr {$strokewidth / 2.0}]
+    set pixel        [expr {$strokewidth / 2.0}]
     set integer_part [expr {int($value)}]
 
     return [expr {$integer_part + $pixel}]
@@ -865,24 +863,30 @@ proc graphy::updateCharts {chart w h} {
     # Returns nothing.
     variable upid
 
-    unset upid($chart,update)
+    unset -nocomplain upid($chart,update)
     
     if {[$chart get ctx] ne ""} {
         pix::img::destroy [dict get [pix::ctx::get [$chart get ctx]] image addr]
         pix::ctx::destroy [$chart get ctx]
-        pix::img::destroy [$chart get ctxImg]
+        foreach {key img} [$chart get ctxImg] {
+            pix::img::destroy $img
+        }
         
         foreach {key item} [$chart get ctxPath] {
             pix::path::destroy [dict get $item path]
         }
     }
 
-    # bind [$chart get widget] <Motion>  {break}
-    bind [$chart get widget] <Destroy> {break}
+    bind [$chart get widget] <Motion>          {break}
+    bind [$chart get widget] <ButtonPress-1>   {break}
+    bind [$chart get widget] <ButtonRelease-1> {break}
+    bind [$chart get widget] <Button1-Motion>  {break}
     
     if {[info exists upid($chart,redraw)]} {after cancel $upid($chart,redraw)}
 
     $chart Render -width $w -height $h
+    
+    return {}
 
 }
 
@@ -894,21 +898,28 @@ proc graphy::cleanDataCharts {chart} {
     # Returns nothing.
     variable upid
 
-    unset upid($chart,update)
+    unset -nocomplain upid($chart,update)
     
     if {[$chart get ctx] ne ""} {
         pix::img::destroy [dict get [pix::ctx::get [$chart get ctx]] image addr]
         pix::ctx::destroy [$chart get ctx]
-        pix::img::destroy [$chart get ctxImg]
+        foreach {key img} [$chart get ctxImg] {
+            pix::img::destroy $img
+        }
         
         foreach {key item} [$chart get ctxPath] {
             pix::path::destroy [dict get $item path]
         }
     }
 
-    bind [$chart get widget] <Motion> {break}
+    bind [$chart get widget] <Motion>          {break}
+    bind [$chart get widget] <ButtonPress-1>   {break}
+    bind [$chart get widget] <ButtonRelease-1> {break}
+    bind [$chart get widget] <Button1-Motion>  {break}
     
     if {[info exists upid($chart,redraw)]} {after cancel $upid($chart,redraw)}
+    
+    return {}
 
 }
 
@@ -938,4 +949,32 @@ proc graphy::reDraw {W chart self} {
 
     set upid($chart,redraw) [after 60 graphy::reDraw $W $chart $self]
 
+    return {}
+
+}
+
+proc graphy::coordToPixX {x chart} {
+
+    set bounds  [$chart get boundsArea]
+    set xparams [$chart get xAxisParams]
+
+    set xmin [dict get $xparams min]
+    set xmax [dict get $xparams max]
+    set xb   [dict get $bounds x]
+    set wb   [dict get $bounds width]
+
+    return [expr {$xmin + ((($x - $xb) * ($xmax - $xmin)) / double($wb))}]
+    
+}
+
+proc graphy::cursor {} {
+    # pointinghand > macOS
+    # hand2 > Windows
+
+    if {$::tcl_platform(os) eq "Darwin"} {
+        return "pointinghand"
+    }
+
+    return "hand2"
+    
 }

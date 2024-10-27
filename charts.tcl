@@ -10,6 +10,7 @@ oo::class create graphy::Charts {
 
         dict set _options seriesList    {}
         dict set _options xAxisConfigs  {}
+        dict set _options xAxisParams   {}
         dict set _options yAxisConfigs  {}
         dict set _options width         {}
         dict set _options height        {}
@@ -18,12 +19,13 @@ oo::class create graphy::Charts {
         dict set _options ctxImg        {}
         dict set _options ctxPath       {}
         dict set _options entities      {}
-        dict set _options boundsAera    {}
+        dict set _options boundsArea    {}
         dict set _options global        {}
         dict set _options surface       {}
         dict set _options parent        {}
         dict set _options widget        {}
         dict set _options canvas        {}
+        dict set _options zoomData      {}
         
     }
 
@@ -88,6 +90,7 @@ oo::class create graphy::Charts {
                 -title          {my globalOptions title   [graphy::title $value]}
                 -legend         {my globalOptions legend  [graphy::legend $value]}
                 -grid           {my globalOptions grid    [graphy::grid $value]}
+                -toolbox        {my globalOptions toolbox [graphy::toolbox $value]}
                 -background     {lappend gopts $key $value}
                 -areaBackground {lappend gopts $key $value}
                 -margin         {lappend gopts $key $value}
@@ -369,7 +372,7 @@ oo::class create graphy::Charts {
             dict set params thousands_format [graphy::isThousandFormat [my GetYAxisConfig $index]]
             dict set params reverse          [graphy::dictGet $y_axis_config -reverse]
             
-            set y_axis_values    [graphy::axisValues $params]
+            set y_axis_values [graphy::axisValues $params "Y"]
         } else {
             if {[graphy::dictTypeOf $y_axis_config -data] eq "null"} {
                 error "no data for Y axis when type is set to 'category'"
@@ -435,7 +438,56 @@ oo::class create graphy::Charts {
             if {[graphy::dictTypeOf $x_axis_config -data] eq "null"} {
                 error "no data for X axis when type is set to 'category'"
             }
-            return [list data $data]
+            
+            set min 0
+            set max [expr {[llength $data] - 1}]
+            set boundaryGap [graphy::dictGet $x_axis_config -boundaryGap]
+
+            if {
+                [graphy::dictTypeOf $x_axis_config -min] ne "null" &&
+                [graphy::dictTypeOf $x_axis_config -max] ne "null"
+            } {
+
+                if {$boundaryGap} {
+                    set min [expr {int([graphy::dictGet $x_axis_config -min])}]
+                    set max [expr {int([graphy::dictGet $x_axis_config -max])}]
+                } else {
+                    set min [expr {round([graphy::dictGet $x_axis_config -min])}]
+                    set max [expr {round([graphy::dictGet $x_axis_config -max])}]
+                }
+                set data [lrange $data $min $max]
+            } elseif {
+                [graphy::dictTypeOf $x_axis_config -min] ne "null" &&
+                [graphy::dictTypeOf $x_axis_config -max] eq "null"
+            } {
+                if {$boundaryGap} {
+                    set min [expr {int([graphy::dictGet $x_axis_config -min])}]
+                } else {
+                    set min [expr {round([graphy::dictGet $x_axis_config -min])}]
+                }
+                set data [lrange $data $min end]
+            } elseif {
+                [graphy::dictTypeOf $x_axis_config -min] eq "null" &&
+                [graphy::dictTypeOf $x_axis_config -max] ne "null"
+            } {
+                if {$boundaryGap} {
+                    set max [expr {int([graphy::dictGet $x_axis_config -max])}]
+                } else {
+                    set max [expr {round([graphy::dictGet $x_axis_config -max])}]
+                }
+                set data [lrange $data 0 $max]
+            }
+
+            if {$boundaryGap} {
+                set max [expr {$max + 1}]
+            }
+
+            if {$max == $min} {
+                set max [expr {$max + 1}]
+            }
+
+            return [list data $data min $min max $max]
+
         } else {
             if {[graphy::dictTypeOf $x_axis_config -data] eq "null"} {
                 set lseries {}
@@ -497,8 +549,9 @@ oo::class create graphy::Charts {
         dict set params max              [graphy::dictGet $x_axis_config -max]
         dict set params reverse          "False"
         dict set params thousands_format [graphy::isThousandFormat $x_axis_config]
+        dict set params boundaryGap      [graphy::dictGet $x_axis_config -boundaryGap]
 
-        return [graphy::axisValues $params]
+        return [graphy::axisValues $params "X"]
 
     }
 
@@ -883,7 +936,7 @@ oo::class create graphy::Charts {
                 ]
                 set line_height 20.0
                 $c text [graphy::Component::Text new \
-                    text        [graphy::format_float $value] \
+                    text        [graphy::formatFloat $value] \
                     font_family [graphy::dictGet $item label fontFamily] \
                     font_size   [graphy::dictGet $item label fontSize] \
                     font_color  [graphy::dictGet $item label fontColor] \
@@ -915,6 +968,62 @@ oo::class create graphy::Charts {
         ]
         
         return {}
+    }
+
+    method RenderToolbox {c opts} {
+
+        set color [graphy::dictGet $opts toolbox color]
+        set zdata [my get zoomData]
+
+        if {$zdata ne "" && [dict get $zdata enable]} {
+            set zcolor [graphy::dictGet $opts toolbox itemStyle itemColor]
+        } else {
+            set zcolor $color
+        }
+
+        set dec 0.0
+
+        if {[graphy::dictGet $opts toolbox saveAsImage show]} {
+            $c tbox [graphy::Component::ToolBox new \
+                left [expr {[$c width] - 10}] \
+                top  [graphy::topBox [$c margin]] \
+                toolbox $opts \
+                type "save" \
+                color $color \
+            ]
+
+            set dec 25.0
+        }
+
+        if {[graphy::dictGet $opts toolbox dataZoom show]} {
+
+            $c tbox [graphy::Component::ToolBox new \
+                left [expr {[$c width] - (10 + $dec)}] \
+                top  [graphy::topBox [$c margin]] \
+                toolbox $opts \
+                type "restore" \
+                color $color \
+            ] 
+
+            $c tbox [graphy::Component::ToolBox new \
+                left [expr {[$c width] - (35 + $dec)}] \
+                top  [graphy::topBox [$c margin]] \
+                toolbox $opts \
+                type "undo" \
+                color $color \
+            ]
+
+
+            $c tbox [graphy::Component::ToolBox new \
+                left [expr {[$c width] - (60 + $dec)}] \
+                top  [graphy::topBox [$c margin]] \
+                toolbox $opts \
+                type "zoom" \
+                color $zcolor \
+            ]
+        }
+
+        return  {}
     }
 
     method Render {args} {
@@ -981,6 +1090,21 @@ oo::class create graphy::Charts {
         # Destroy the child
         $c_child destroy
 
+        # Render toolbox
+        set gopts [graphy::getDictValueOrDefault [self] "toolbox"]
+        if {
+            [graphy::dictGet $gopts toolbox dataZoom show] ||
+            [graphy::dictGet $gopts toolbox saveAsImage show]
+        } {
+            set tbox    [graphy::dictGet $gopts toolbox margin]
+            set ctbox   [graphy::Canvas new $width $height $dBox]
+            set c_child [$ctbox child $tbox]
+            my RenderToolbox $c_child [dict get $gopts toolbox]
+            $c lappend toolbox [$c_child components]
+            $ctbox   destroy
+            $c_child destroy
+        }
+
 
         set axis_top [expr {($legend_height > $title_height) ? $legend_height : $title_height}]
 
@@ -1039,7 +1163,7 @@ oo::class create graphy::Charts {
         ]
 
         set boundsOpts [[$c_child components] options]
-        my set boundsAera [dict create \
+        my set boundsArea [dict create \
             x [dict get $boundsOpts left] \
             y [dict get $boundsOpts top] \
             width [dict get $boundsOpts width] \
@@ -1068,6 +1192,8 @@ oo::class create graphy::Charts {
         }
 
         set xParamsData [my GetXAxisValues]
+
+        my set xAxisParams $xParamsData
 
         # Render x axis
         if {[graphy::dictGet $xOpts -show]} {
@@ -1140,10 +1266,11 @@ oo::class create graphy::Charts {
                         $c_child \
                         [self] \
                         $series \
-                        $indexBar $indexSeries \
+                        $indexBar \
+                        $indexSeries \
                         $y_axis_values_list \
                         $max_height \
-                        $xOpts \
+                        $xParamsData \
                     ]
                     $c lappend barSeries [list series $series components [$c_child components]]
                     incr indexBar

@@ -5,20 +5,19 @@
 namespace eval graphy {}
 
 oo::class create graphy::Canvas {
-    variable _canvas {}
-    variable _margin {}
-    variable _width {}
-    variable _height {}
+    variable _canvas     {}
+    variable _margin     {}
+    variable _width      {}
+    variable _height     {}
     variable _components {}
-    variable _child {}
-    variable _addr {}
+    variable _surface    {}
 
     constructor {width height {margin ""}} {
 
         set _width  $width
         set _height $height
         set _components {}
-        set _addr {}
+        set _surface {}
 
         if {$margin eq ""} {
             set _margin [graphy::newBox 5]
@@ -28,7 +27,9 @@ oo::class create graphy::Canvas {
     }
 
     method width {} {
-        return [expr {[my wCanvas] - [graphy::leftBox [my margin]] - [graphy::rightBox [my margin]]}]
+        return [expr {
+            [my wCanvas] - [graphy::leftBox [my margin]] - [graphy::rightBox [my margin]]
+        }]
     }
 
     method wCanvas {} {
@@ -40,7 +41,9 @@ oo::class create graphy::Canvas {
     }
 
     method height {} {
-        return [expr {[my hCanvas] - [graphy::topBox [my margin]] - [graphy::bottomBox [my margin]]}]
+        return [expr {
+            [my hCanvas] - [graphy::topBox [my margin]] - [graphy::bottomBox [my margin]]
+        }]
     }
 
     method hCanvas {} {
@@ -49,6 +52,14 @@ oo::class create graphy::Canvas {
 
     method margin {} {
         return $_margin
+    }
+
+    method surface {{value ""}} {
+        if {$value eq ""} {
+            return $_surface
+        } else {
+            set _surface $value
+        }
     }
 
     method components {} {
@@ -67,16 +78,14 @@ oo::class create graphy::Canvas {
         return {}
     }
 
-    method clearCanvas {chart {color ""}} {
+    method clearCanvas {ctx {color ""}} {
 
-        set ctx [$chart get ctx]
-
-        pix::ctx::clearRect $ctx {0 0} [list [$chart get width] [$chart get height]]
+        pix::ctx::clearRect $ctx {0 0} [list [my wCanvas] [my hCanvas]]
 
         if {$color ne ""} {
             pix::ctx::save $ctx
             pix::ctx::fillStyle $ctx $color
-            pix::ctx::fillRect $ctx {0 0} [list [$chart get width] [$chart get height]]
+            pix::ctx::fillRect $ctx {0 0} [list [my wCanvas] [my hCanvas]]
             pix::ctx::restore $ctx
         }
     }
@@ -156,6 +165,15 @@ oo::class create graphy::Canvas {
         return {}
     }
 
+    method tbox {tbox} {
+    
+        $tbox set left [expr {[$tbox get left] + [graphy::leftBox [my margin]]}]
+
+        my lappend $tbox
+
+        return {}
+    }
+
     method child {margin} {
 
         dict set m left   [expr {[graphy::leftBox $margin]   + [graphy::leftBox   [my margin]]}]
@@ -183,7 +201,6 @@ oo::class create graphy::Canvas {
         my lappend $grid
 
         return {}
-
     }
 
     method line {line} {
@@ -201,7 +218,6 @@ oo::class create graphy::Canvas {
         my lappend $line
 
         return {}
-
     }
 
     method smooth_line {line} {
@@ -222,7 +238,6 @@ oo::class create graphy::Canvas {
         my lappend $line
 
         return {}
-
     }
 
     method circle {circle} {
@@ -236,7 +251,6 @@ oo::class create graphy::Canvas {
         my lappend $circle
 
         return {}
-
     }
 
     method arrow {arrow} {
@@ -250,7 +264,6 @@ oo::class create graphy::Canvas {
         my lappend $arrow
 
         return {}
-
     }
 
     method bubble {bubble} {
@@ -278,7 +291,6 @@ oo::class create graphy::Canvas {
         my lappend $rect
 
         return {}
-
     }
 
     method straight_line {line} {
@@ -298,7 +310,6 @@ oo::class create graphy::Canvas {
         my lappend $line
 
         return {}
-
     }
 
     method draw {chart} {
@@ -308,32 +319,31 @@ oo::class create graphy::Canvas {
         #
         # Returns widget name.
 
-        set ctx [pix::ctx::new [list [$chart get width] [$chart get height]]]
+        set ctx [pix::ctx::new [list [my wCanvas] [my hCanvas]]]
         $chart set ctx $ctx
 
-        set gopts [$chart get global]
+        set gopts      [$chart get global]
         set background [graphy::dictGet $gopts background]
-
-        my clearCanvas $chart $background
-
-        set dictsurface [dict create]
-        set entities {}
+        set entities   {}
 
         foreach {key obj} [my components] {
             if {$obj eq ""} {error "no $key object"}
             switch -exact $key {
-                barSeries - lineSeries - marklineSeries - labelSeries - horizontalbarSeries {
+                lineSeries - marklineSeries - labelSeries - 
+                barSeries  - horizontalbarSeries {
+                    set bseries {}
                     foreach objCompo [dict get $obj components] {
                         set data [$objCompo entity]
-                        if {$data eq ""} {error "no $key object"}
-                        lappend entities $key $data
+                        if {$data eq ""} {error "no '$key' object"}
+                        lappend bseries {*}$data
                     }
+                    lappend entities $key $bseries
                 }
                 default {
                     foreach objCompo $obj {
                         set data [$objCompo entity]
                         
-                        if {$data eq ""} {error "no $key object"}
+                        if {$data eq ""} {error "no '$key' object"}
                         lappend entities $key $data
                     }
                 }
@@ -341,25 +351,63 @@ oo::class create graphy::Canvas {
         }
 
         $chart set ctxPath [graphy::drawEntities $ctx $entities $chart dictimg]
-        $chart set ctxImg  [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
+
+        # Clear the canvas by drawing a rectangle with the background color.
+        my clearCanvas $ctx $background
+
+        # Draw all the images on the canvas.
+        foreach {key image} $dictimg {
+            pix::ctx::drawImage $ctx $image {0 0}
+        }
+
+        # Copy the full image from the canvas context ($ctx) and store it.
+        dict set dictimg fullimage [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
+
+        $chart set ctxImg $dictimg
 
         if {[$chart get surface] eq ""} {
-            $chart set surface [image create photo]
+            my surface [image create photo]
+        } else {
+            my surface [$chart get surface]
         }
+
+        $chart set surface [my surface]
 
         # Draw the surface of the chart
         # $ctx is the canvas context
         # This function is used to update the chart on the canvas whenever the chart changes
-        pix::drawSurface $ctx [$chart get surface]
+        pix::drawSurface $ctx [my surface]
 
         set w [string cat [$chart get parent] ".w" [string map {:: ""} $chart]]
         if {![winfo exists $w]} {
             $chart set widget $w
-            label $w -image [$chart get surface] -borderwidth 0 -anchor nw -padx 0 -pady 0
+            label $w -image [my surface] -borderwidth 0 -anchor nw -padx 0 -pady 0
         }
 
         # Event loop.
         graphy::reDraw $w $chart [self]
+        
+        set dzoom [$chart get zoomData] 
+        if {$dzoom eq ""} {
+            dict set zoomData enable 0
+            $chart set zoomData $zoomData
+        }
+
+        # Bind toolbox
+        set opts             [graphy::getDictValueOrDefault $chart "toolbox"]
+        set zoom_show        [graphy::dictGet $gopts toolbox dataZoom show]
+        set save_as_img_show [graphy::dictGet $gopts toolbox saveAsImage show]
+
+        if {$zoom_show} {
+            bind $w <Motion>           [list graphy::tBoxIcon      %x %y %W $chart [self]]
+            bind $w <ButtonRelease-1>  [list graphy::tBoxAction    %x %y %W $chart [self]]
+            bind $w <ButtonPress-1>    [list graphy::zoomDragStart %x %y %W $chart [self]]
+            bind $w <Button1-Motion>   [list graphy::zoomDragMove  %x %y %W $chart [self]]
+            bind $w <ButtonRelease-1> +[list graphy::zoomDragEnd   %x %y %W $chart [self]]
+        } elseif {!$zoom_show && $save_as_img_show} {
+            bind $w <Motion>           [list graphy::tBoxIcon      %x %y %W $chart [self]]
+            bind $w <ButtonRelease-1>  [list graphy::tBoxAction    %x %y %W $chart [self]]
+        }
 
         bind $w <Destroy> [list graphy::cleanDataCharts $chart]
         

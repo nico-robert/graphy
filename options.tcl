@@ -50,6 +50,84 @@ proc graphy::title {d} {
     return [merge $options $d]
 }
 
+proc graphy::toolbox {d} {
+    # toolbox options chart
+    #
+    # d - Options described below.
+    #
+    # Returns dict options
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
+
+    setdef options dataZoom     -validvalue {}  -type dict    -default [graphy::dataZoom $d]
+    setdef options saveAsImage  -validvalue {}  -type dict    -default [graphy::saveAsImage $d]
+    setdef options itemStyle    -validvalue {}  -type dict    -default [graphy::itemStyle $d "itemStyle"]
+    setdef options position     -validvalue {}  -type str     -default "right"
+    setdef options color        -validvalue {}  -type str     -default "gray"
+    setdef options margin       -validvalue {}  -type dict.b  -default {left 0 top 0 right 20 bottom 0}
+    setdef options showTitle    -validvalue {}  -type bool    -default "True"
+    #...
+
+    # remove key(s)...
+    set d [dict remove $d dataZoom saveAsImage itemStyle]
+    
+    return [merge $options $d]
+}
+
+proc graphy::dataZoom {d} {
+    # dataZoom options chart
+    #
+    # d - Options described below.
+    #
+    # Returns dict options
+
+    if {![dict exists $d dataZoom]} {dict set d dataZoom {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
+        
+    set d [dict get $d dataZoom]
+
+    setdef options show          -validvalue {}  -type bool  -default "False"
+    setdef options undo          -validvalue {}  -type bool  -default "True"
+    setdef options restore       -validvalue {}  -type bool  -default "True"
+    setdef options text          -validvalue {}  -type list  -default {{Zoom Undo Restore}}
+    setdef options nameTextStyle -validvalue {}  -type dict  -default [graphy::nameTextStyle $d "nameTextStyle"]
+    #...
+
+    # remove key(s)...
+    set d [dict remove $d nameTextStyle]
+    
+    return [newDict [merge $options $d]]
+}
+
+proc graphy::saveAsImage {d} {
+    # saveAsImage options chart
+    #
+    # d - Options described below.
+    #
+    # Returns dict options
+
+    if {![dict exists $d saveAsImage]} {dict set d saveAsImage {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
+        
+    set d [dict get $d saveAsImage]
+
+    setdef options show              -validvalue {}  -type bool     -default "False"
+    setdef options text              -validvalue {}  -type str      -default "Save"
+    setdef options nameTextStyle     -validvalue {}  -type dict     -default [graphy::nameTextStyle $d "nameTextStyle"]
+    setdef options excludeComponents -validvalue {}  -type str|null -default "toolbox"
+    setdef options backgroundColor   -validvalue {}  -type str      -default "auto"
+    setdef options type              -validvalue {}  -type str      -default ".png"
+
+    #...
+
+    # remove key(s)...
+    set d [dict remove $d nameTextStyle]
+    
+    return [newDict [merge $options $d]]
+}
+
 
 proc graphy::tooltip {d} {
 
@@ -102,13 +180,11 @@ proc graphy::textStyle {d key} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
-    if {![dict exists $d $key]} {
-        dict set d $key {}
-    }
+    if {![dict exists $d $key]} {dict set d $key {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
 
     set d [dict get $d $key]
 
@@ -159,11 +235,11 @@ proc graphy::lineStyle {d key} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
     
     if {![dict exists $d $key]} {dict set d $key {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
     switch -glob -- $levelP {
         "grid.lineStyle" {
@@ -206,11 +282,11 @@ proc graphy::backgroundStyle {d} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
     
     if {![dict exists $d -backgroundStyle]} {dict set d -backgroundStyle {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
         
     set d [dict get $d -backgroundStyle]
 
@@ -236,11 +312,11 @@ proc graphy::label {d key} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
     if {![dict exists $d $key]} {dict set d $key {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
     set d [dict get $d $key]
 
@@ -265,46 +341,61 @@ proc graphy::label {d key} {
     return [newDict [merge $options $d]]
 }
 
-proc graphy::nameTextStyle {d} {
+proc graphy::nameTextStyle {d key} {
     # nameTextStyle options chart
     #
-    # d - Options described below.
+    # d   - Options described below.
+    # key - Key.
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
-    if {![dict exists $d -nameTextStyle]} {dict set d -nameTextStyle {}}
+    if {![dict exists $d $key]} {dict set d $key {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
-    set d [dict get $d -nameTextStyle]
+    set d [dict get $d $key]
+
+    if {[string match {toolbox.*} $levelP]} {
+        set color "rgb(62,152,197)"
+    } else {
+        set color "rgba(70,70,70,1)"
+    }
 
     setdef options fontSize    -validvalue {}  -type num       -default 12
     setdef options fontFamily  -validvalue {}  -type str       -default [file join $::graphy::tdir font OpenSans-Regular.ttf]
-    setdef options fontColor   -validvalue {}  -type str       -default "rgba(70,70,70,1)"
+    setdef options fontColor   -validvalue {}  -type str       -default $color
     setdef options fontWeight  -validvalue {}  -type str       -default "normal"
     #...
 
     return [newDict [merge $options $d]]
 }
 
-proc graphy::itemStyle {d} {
+proc graphy::itemStyle {d key} {
     # itemStyle options chart
     #
     # d - Options described below.
+    # key - Key.
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
-    if {![dict exists $d -itemStyle]} {dict set d -itemStyle {}}
+    if {![dict exists $d $key]} {dict set d $key {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
-    set d [dict get $d -itemStyle]
+    set d [dict get $d $key]
+
+    if {[string match {toolbox.*} $levelP]} {
+        set color "rgb(62,152,197)"
+    } else {
+        set color "rgba(70,70,70,1)"
+    }
 
     setdef options borderRadius  -validvalue {}  -type num|list -default {{0 0 0 0}}
+    setdef options itemColor     -validvalue {}  -type str      -default $color
 
     #...
 
@@ -402,11 +493,11 @@ proc graphy::minorTick {d} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
     if {![dict exists $d -minorTick]} {dict set d -minorTick {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
     set d [dict get $d -minorTick]
 
@@ -423,11 +514,11 @@ proc graphy::axisLabel {d} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
     if {![dict exists $d -axisLabel]} {dict set d -axisLabel {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
     set d [dict get $d -axisLabel]
 
@@ -452,11 +543,11 @@ proc graphy::axisLine {d} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
     if {![dict exists $d -axisLine]} {dict set d -axisLine {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
     set d [dict get $d -axisLine]
     
@@ -482,11 +573,11 @@ proc graphy::axisTick {d} {
     #
     # Returns dict options
 
-    if {[llength $d] % 2} graphy::errorEvenArgs
-
     set levelP [graphy::getLevelProperties [info level]]
 
     if {![dict exists $d -axisTick]} {dict set d -axisTick {}}
+
+    if {[llength $d] % 2} graphy::errorEvenArgs
     
     set d [dict get $d -axisTick]
 

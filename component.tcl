@@ -320,6 +320,68 @@ oo::class create graphy::Component::Grid {
 
 }
 
+oo::class create graphy::Component::ToolBox {
+
+    variable _options {}
+
+    constructor {args} {
+
+        dict set _options color {}
+        dict set _options left {}
+        dict set _options top {}
+        dict set _options position {}
+        dict set _options toolbox {}
+        dict set _options type {}
+
+        if {[llength $args] % 2} {
+            error "wrong args"
+        }
+
+        foreach {key value} $args {
+            if {![dict exists $_options $key]} {
+                error "'$key' not supported"
+            }
+            dict set _options $key $value
+        }
+    }
+
+    method get {key} {
+        return [dict get $_options {*}$key]
+    }
+
+    method set {key value} {
+        if {![dict exists $_options $key]} {
+            error "property '$key' doesn't exists for [info object class [self]] class."
+        }
+        dict set _options $key $value
+
+        return {}
+    }
+
+    method options {} {
+        return $_options
+    }
+
+    method entity {} {
+
+        set color   [my get color]
+        set left    [my get left]
+        set top     [my get top]
+        set toolbox [my get toolbox]
+        set type    [my get type]
+
+        my destroy
+
+        return [list $type [list \
+            color $color \
+            top $top \
+            left $left \
+            toolbox $toolbox \
+        ]]
+    }
+
+}
+
 oo::class create graphy::Component::Circle {
 
     variable _options {}
@@ -941,7 +1003,7 @@ oo::class create graphy::Component::SmoothCurve {
         foreach point $lpoints {
             lassign $point px py
             if {$index == 0} {
-                append arr [format "M%s,%s " [graphy::format_float $px] [graphy::format_float $py]]
+                append arr [format "M%s,%s " [graphy::formatFloat $px] [graphy::formatFloat $py]]
             }
 
             set cp1 [dict get [lindex $control_points $index] right]
@@ -962,13 +1024,13 @@ oo::class create graphy::Component::SmoothCurve {
 
             if {$next_point ne ""} {
                 lassign $next_point npx npy
-                set next_point_value [format "%s %s" [graphy::format_float $npx] [graphy::format_float $npy]]
+                set next_point_value [format "%s %s" [graphy::formatFloat $npx] [graphy::formatFloat $npy]]
                 if {$cp1 ne ""} {
                     if {$cp2 ne ""} {
                         lassign $cp1 cp1x cp1y
                         lassign $cp2 cp2x cp2y
-                        set c1 [format "%s %s" [graphy::format_float $cp1x] [graphy::format_float $cp1y]]
-                        set c2 [format "%s %s" [graphy::format_float $cp2x] [graphy::format_float $cp2y]]
+                        set c1 [format "%s %s" [graphy::formatFloat $cp1x] [graphy::formatFloat $cp1y]]
+                        set c2 [format "%s %s" [graphy::formatFloat $cp2x] [graphy::formatFloat $cp2y]]
 
                         append arr [format "C%s, %s, %s " $c1 $c2 $next_point_value]
                         incr index ; continue
@@ -1298,7 +1360,12 @@ oo::class create graphy::Component::Axis {
                 set data_len [expr {$data_len - 1}]
             }
 
-            set unit [expr {$axis_length / double($data_len)}]
+            if {$data_len == 0} {
+                set unit $axis_length 
+            } else {
+                set unit [expr {$axis_length / double($data_len)}]
+            }
+            
             set f [my get font_family]
             set index 0
             foreach text $text_list {
@@ -1310,7 +1377,7 @@ oo::class create graphy::Component::Axis {
                 set b [graphy::measuretextwidth $f $font_size $text]
                 set unit_offset [expr {$unit * $index + $unit / 2.0}]
                 
-                if {[my get name_align] eq "left"} {
+                if {([my get name_align] eq "left") && ($data_len > 0)} {
                     set unit_offset [expr {$unit_offset - $unit / 2.0}]
                 }
 
@@ -1550,6 +1617,7 @@ oo::class create graphy::Component::Bubble {
         dict set _options y {}
         dict set _options r {}
         dict set _options fill {}
+        dict set _options series {}
 
         if {[llength $args] % 2} {
             error "wrong args"
@@ -1582,10 +1650,10 @@ oo::class create graphy::Component::Bubble {
     }
 
     method entity {} {
-        set x [my get x]
-        set y [my get y]
-        set r [my get r]
-
+        set x          [my get x]
+        set y          [my get y]
+        set r          [my get r]
+        set series     [my get series]
         set fill_color [my get fill]
 
         my destroy
@@ -1594,6 +1662,7 @@ oo::class create graphy::Component::Bubble {
             fill_color $fill_color \
             coordinates [list $x $y] \
             radius $r \
+            series $series \
         ]]
     }
 }

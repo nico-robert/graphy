@@ -27,7 +27,7 @@ oo::class create graphy::XAxis {
         graphy::setdef options -max            -validvalue {}  -type num|null  -default "nothing"
         graphy::setdef options -name           -validvalue {}  -type str|null  -default "nothing"
         graphy::setdef options -nameLocation   -validvalue {}  -type str       -default "middle"
-        graphy::setdef options -nameTextStyle  -validvalue {}  -type dict      -default [graphy::nameTextStyle $args]
+        graphy::setdef options -nameTextStyle  -validvalue {}  -type dict      -default [graphy::nameTextStyle $args "-nameTextStyle"]
         
         set args [dict remove $args -axisLine -axisTick -axisLabel -minorTick -nameTextStyle]
         set _xaxis [graphy::merge $options $args]
@@ -36,6 +36,24 @@ oo::class create graphy::XAxis {
 
     method get {} {
         return $_xaxis
+    }
+
+    method setKey {key value} {
+        if {![dict exists $_xaxis $key]} {
+            error "property '$key' doesn't exists for [info object class [self]] class."
+        }
+
+        dict set _xaxis $key $value
+
+        return {}
+    }
+
+    method getKey {key} {
+        if {![dict exists $_xaxis $key]} {
+            error "property '$key' doesn't exists for [info object class [self]] class."
+        }
+
+        return [dict get $_xaxis $key]
     }
 
 }
@@ -62,7 +80,7 @@ oo::class create graphy::YAxis {
         graphy::setdef options -type           -validvalue {}  -type str       -default "value"
         graphy::setdef options -name           -validvalue {}  -type str|null  -default "nothing"
         graphy::setdef options -nameLocation   -validvalue {}  -type str       -default "middle"
-        graphy::setdef options -nameTextStyle  -validvalue {}  -type dict      -default [graphy::nameTextStyle $args]
+        graphy::setdef options -nameTextStyle  -validvalue {}  -type dict      -default [graphy::nameTextStyle $args "-nameTextStyle"]
 
         set args [dict remove $args -axisLine -axisTick -axisLabel -minorTick -nameTextStyle]
         set _yaxis [graphy::merge $options $args]
@@ -72,4 +90,23 @@ oo::class create graphy::YAxis {
     method get {} {
         return $_yaxis
     }
+
+    method setKey {key value} {
+        if {![dict exists $_yaxis $key]} {
+            error "property '$key' doesn't exists for [info object class [self]] class."
+        }
+
+        dict set _yaxis $key $value
+
+        return {}
+    }
+
+    method getKey {key} {
+        if {![dict exists $_yaxis $key]} {
+            error "property '$key' doesn't exists for [info object class [self]] class."
+        }
+
+        return [dict get $_yaxis $key]
+    }
+
 }

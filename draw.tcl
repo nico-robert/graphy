@@ -4,6 +4,33 @@
 
 namespace eval graphy {}
 
+proc graphy::icon {ctx data chart type} {
+
+    switch -exact $type {
+        zoom    {set strPath {M 10,30 L 10,50 L 50,50 L 50,15 L 25,15 M 10,5 L 10,25 L 10,15 M 0,15 L 20,15}}
+        undo    {set strPath {M 10,30 L 10,50 L 50,50 L 50,15 L 10,15 M 10,15 L 20,7 M 10,15 L 20,23}}
+        restore {set strPath {M 10,30 A 20,20 0 0,1 50,30  M 50,30 L 53,20 M 50,30 L 42,22 M 10,30 A 20,20 0 0,0 50,30}}
+        save    {set strPath {M 10,35 L 10,50 L 50,50 L 50,35 M 30,8 L 30,45 L 45,25 M 30,45 L 15,25}}
+    }
+
+    set left [dict get $data left]
+    set top  [dict get $data top]
+
+    set path [pix::svgStyleToPathObj $strPath]
+
+    pix::ctx::strokePath $ctx $path [dict get $data color] [list \
+        strokeWidth 2.5 \
+        transform [list .45 0 0 0 .45 0 $left $top 1] \
+    ]
+
+    return [list [list $type [list \
+        path $path \
+        data $data \
+        transform [list .45 0 0 0 .45 0 $left $top 1] \
+    ]]]
+
+}
+
 proc graphy::drawBlurImage {ctx data chart path} {
     # Draw a blurred image
     set polygonImage [pix::img::new [list [$chart get width] [$chart get height]]]
@@ -75,7 +102,6 @@ proc graphy::drawFillLine {ctx data} {
     # Draw a line
     set index 0
     set svgpath {}
-    set circlepath {}
 
     foreach pt [dict get $data points] {
         set action "L"
@@ -103,8 +129,11 @@ proc graphy::drawStrokeLine {ctx data chart} {
     set index 0
     set svgpath {}
     set circlepath {}
-    set points [dict get $data points]
-    set bottom [dict get $data bottom]
+    set points       [dict get $data points]
+    set bottom       [dict get $data bottom]
+    set symbols      [dict get $data symbol]
+    set stroke_color [dict get $data stroke_color]
+    set stroke_width [dict get $data stroke_width]
     set fillsvgpath {}
     set fillpath "null"
 
@@ -112,18 +141,33 @@ proc graphy::drawStrokeLine {ctx data chart} {
         set action "L"
         if {$index == 0} {set action "M"}
     
-        append svgpath [format "%s %s %s " $action {*}$pt]
+        append svgpath [format "%s %.1f %.1f " $action {*}$pt]
 
         incr index
-        
-        if {[dict get $data symbol]} {
-            set cpath [pix::path::new]
-            lappend circlepath $cpath $pt
-        }
+        lappend circlepath [pix::path::new] $pt
+
     }
 
     if {[dict get $data is_close]} {
         append svgpath "Z"
+    }
+
+    pix::ctx::save $ctx
+
+    set series [dict get $data series]
+    # Clip the line if needed
+    if {[graphy::dictGet [$series get] -clip]} {
+
+        set bounds [$chart get boundsArea]
+        set xr [expr {[dict get $bounds x] - 1}]
+        set yr [expr {[dict get $bounds y] - 1}]
+        set wr [expr {[dict get $bounds width] +  2}]
+        set hr [expr {[dict get $bounds height] + 2}]
+
+        set rectPath [pix::path::new]
+        pix::path::rect $rectPath [list $xr $yr] [list $wr $hr]
+
+        pix::ctx::clip $ctx $rectPath
     }
 
     if {[dict get $data fill_color] ne ""} {
@@ -139,7 +183,7 @@ proc graphy::drawStrokeLine {ctx data chart} {
         set fcolor [dict get $data fill_color]
 
         if {[graphy::isePaintClass $fcolor]} {
-            set bounds [$chart get boundsAera]
+            set bounds [$chart get boundsArea]
             set xb [dict get $bounds x]
             set yb [dict get $bounds y]
             set wb [dict get $bounds width]
@@ -153,7 +197,9 @@ proc graphy::drawStrokeLine {ctx data chart} {
                 gradientStops           [graphy::dictGet $p -gradientStops] \
             ]
         }
-        pix::ctx::fillPath $ctx $fillpath $fcolor
+
+        pix::ctx::fillStyle $ctx $fcolor
+        pix::ctx::fill $ctx $fillpath
 
     }
 
@@ -164,31 +210,42 @@ proc graphy::drawStrokeLine {ctx data chart} {
     if {[dict get $data sblur]} {
         graphy::drawBlurImage $ctx $data $chart $path
     } else {
-        pix::ctx::strokePath $ctx $path [dict get $data stroke_color] [list \
-            strokeWidth [dict get $data stroke_width] \
-            dashes [dict get $data dashes] \
-        ]
+        pix::ctx::strokeStyle $ctx $stroke_color
+        pix::ctx::lineWidth   $ctx $stroke_width
+        pix::ctx::setLineDash $ctx [dict get $data dashes]
+        pix::ctx::stroke $ctx $path
     }
 
-    set pc {}
-    if {[dict get $data symbol]} {
-        set r [expr {[dict get $data stroke_width] * 1.1}]
-        set i 0
-        set chartsvalue [dict get $data charts_value]
-        foreach {cpath points} $circlepath {
-            lappend pc [list circle [list path $cpath data [lindex $chartsvalue $i] \
-                coordinates $points \
-                radius $r \
-                stroke_color [dict get $data stroke_color] \
-                stroke_width [dict get $data stroke_width] \
-                series [dict get $data series] \
-            ]]
-            pix::path::circle $cpath $points $r
-            pix::ctx::fillPath $ctx $cpath "white"
-            pix::ctx::strokePath $ctx $cpath [dict get $data stroke_color] [list strokeWidth [dict get $data stroke_width]]
-            incr i
-        }
+    set pc {} ; set i 0
+    set r [expr {$stroke_width * 1.1}]
+    pix::ctx::fillStyle $ctx "white"
+    pix::ctx::strokeStyle $ctx $stroke_color
+    pix::ctx::lineWidth   $ctx $stroke_width
+    set series      [dict get $data series]
+    set chartsvalue [dict get $data charts_value]
+    foreach {cpath point} $circlepath {
+        lappend pc [list circle [list path $cpath data [lindex $chartsvalue $i] \
+            coordinates $point \
+            radius $r \
+            stroke_color $stroke_color \
+            stroke_width $stroke_width \
+            series $series \
+        ]]
+       
+        pix::path::circle $cpath $point $r
+        pix::ctx::fillPath $ctx $cpath "rgba(0,0,0,0)"
+
+        # If the "symbols" flag is set, draw a circle at each point.
+        if {$symbols} {pix::ctx::circle $ctx $point $r}
+        incr i
     }
+
+    if {$symbols} {
+        pix::ctx::fill $ctx
+        pix::ctx::stroke $ctx
+    }
+
+    pix::ctx::restore $ctx
         
     return [list \
         [list strokeLine [list path $path data null]] \
@@ -255,15 +312,35 @@ proc graphy::drawRoundedRect {ctx data chart} {
 
 proc graphy::drawSmoothCurve {ctx data chart} {
     # Draw a smooth curve
-    set svgpath [dict get $data path]
-    set bottom  [dict get $data bottom]
-    set points  [dict get $data points]
+    set svgpath      [dict get $data path]
+    set bottom       [dict get $data bottom]
+    set points       [dict get $data points]
+    set symbols      [dict get $data symbol]
+    set stroke_color [dict get $data stroke_color]
+    set stroke_width [dict get $data stroke_width]
     set fillsvgpath {}
     set fillpath "null"
 
+    pix::ctx::save $ctx
+
+    set series [dict get $data series]
+    # Clip the line if needed
+    if {[graphy::dictGet [$series get] -clip]} {
+        set bounds [$chart get boundsArea]
+        set xr [expr {[dict get $bounds x] - 1}]
+        set yr [expr {[dict get $bounds y] - 1}]
+        set wr [expr {[dict get $bounds width] +  2}]
+        set hr [expr {[dict get $bounds height] + 2}]
+
+        set rectPath [pix::path::new]
+        pix::path::rect $rectPath [list $xr $yr] [list $wr $hr]
+
+        pix::ctx::clip $ctx $rectPath
+    }
+
     if {[dict get $data fill_color] ne ""} {
-        set last   [lindex $points end]
-        set first  [lindex $points 0]
+        set last  [lindex $points end]
+        set first [lindex $points 0]
         set fillsvgpath $svgpath
 
         append fillsvgpath [format "L %s %s " [lindex $last 0]  $bottom]
@@ -271,7 +348,27 @@ proc graphy::drawSmoothCurve {ctx data chart} {
         append fillsvgpath [format "L %s %s" {*}$first]
 
         set fillpath [pix::svgStyleToPathObj $fillsvgpath]
-        pix::ctx::fillPath $ctx $fillpath [dict get $data fill_color]
+        set fcolor   [dict get $data fill_color]
+
+        if {[graphy::isePaintClass $fcolor]} {
+            set bounds [$chart get boundsArea]
+            set xb [dict get $bounds x]
+            set yb [dict get $bounds y]
+            set wb [dict get $bounds width]
+            set hb [dict get $bounds height]
+
+            set p [$fcolor get]
+
+            set fcolor [pix::paint::new [graphy::dictGet $p -type]]
+            pix::paint::configure $fcolor [list \
+                gradientHandlePositions [list [list $xb [expr {$yb + $hb}]] [list $xb $yb]] \
+                gradientStops           [graphy::dictGet $p -gradientStops] \
+            ]
+        }
+
+        pix::ctx::fillStyle $ctx $fcolor
+        pix::ctx::fill $ctx $fillpath
+
     }
 
     set path [pix::svgStyleToPathObj $svgpath]
@@ -281,33 +378,43 @@ proc graphy::drawSmoothCurve {ctx data chart} {
     if {[dict get $data sblur]} {
         graphy::drawBlurImage $ctx $data $chart $path
     } else {
-        pix::ctx::strokePath $ctx $path [dict get $data stroke_color] [list \
-            strokeWidth [dict get $data stroke_width] \
-            dashes [dict get $data dashes] \
-        ]
+        pix::ctx::strokeStyle $ctx $stroke_color
+        pix::ctx::lineWidth   $ctx $stroke_width
+        pix::ctx::setLineDash $ctx [dict get $data dashes]
+        pix::ctx::stroke $ctx $path
     }
 
-    set pc {}
+    set pc {} ; set i 0
+    set r [expr {$stroke_width * 1.1}]
+    pix::ctx::fillStyle $ctx "white"
+    pix::ctx::strokeStyle $ctx $stroke_color
+    pix::ctx::lineWidth   $ctx $stroke_width
+    set series      [dict get $data series]
+    set chartsvalue [dict get $data charts_value]
+    foreach point [dict get $data points] {
+        set cpath [pix::path::new]
+        lappend pc [list circle [list path $cpath data [lindex $chartsvalue $i] \
+            coordinates $point \
+            radius $r \
+            stroke_color $stroke_color \
+            stroke_width $stroke_width \
+            series $series \
+        ]]
+       
+        pix::path::circle $cpath $point $r
+        pix::ctx::fillPath $ctx $cpath "rgba(0,0,0,0)"
 
-    if {[dict get $data symbol]} {
-        set r [expr {[dict get $data stroke_width] * 1.1}]
-        set i 0
-        set chartsvalue [dict get $data charts_value]
-        foreach points [dict get $data points] {
-            set cpath [pix::path::new]
-            lappend pc [list circle [list path $cpath data [lindex $chartsvalue $i] \
-                coordinates $points \
-                radius $r \
-                stroke_color [dict get $data stroke_color] \
-                stroke_width [dict get $data stroke_width] \
-                series [dict get $data series] \
-            ]]
-            pix::path::circle $cpath $points $r
-            pix::ctx::fillPath $ctx $cpath "white"
-            pix::ctx::strokePath $ctx $cpath [dict get $data stroke_color] [list strokeWidth [dict get $data stroke_width]]
-            incr i
-        }
+        # If the "symbols" flag is set, draw a circle at each point.
+        if {$symbols} {pix::ctx::circle $ctx $point $r}
+        incr i
     }
+
+    if {$symbols} {
+        pix::ctx::fill $ctx
+        pix::ctx::stroke $ctx
+    }
+
+    pix::ctx::restore $ctx
         
     return [list \
         [list smoothCurve [list path $path data null]]\
@@ -363,8 +470,10 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
 
     upvar 1 $dictimg ctximg
     set ctxpath {}
+    set canvas [$chart get canvas]
 
     foreach {entity data} $entities {
+        $canvas clearCanvas $ctx
         switch -exact $entity {
             lineSeries  {
                 foreach {type element} $data {
@@ -376,6 +485,8 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         default          {error "'$type' not supported yet."}
                     }
                 }
+                set series [dict get [lindex $data 1] series]
+                dict set ctximg lineSeries($series) [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             labelSeries {
                 foreach {type element} $data {
@@ -384,6 +495,8 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         default {error "'$type' not supported yet."}
                     }
                 }
+                set series [dict get [lindex $data 1] series]
+                dict set ctximg labelSeries($series) [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             marklineSeries {
                 foreach {type element} $data {
@@ -396,6 +509,8 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         default  {error "'$type' not supported yet."}
                     }
                 }
+                set series [dict get [lindex $data 1] series]
+                dict set ctximg marklineSeries($series) [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             title - subtitle {
                 foreach {type element} $data {
@@ -404,6 +519,7 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         default {error "'$type' not supported yet."}
                     }
                 }
+                dict set ctximg $entity [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             legend {
                 foreach {type element} $data {
@@ -415,6 +531,8 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         default           {error "'$type' not supported yet."}
                     }
                 }
+                set series [dict get [lindex $data 1] series]
+                dict set ctximg legend($series) [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             grid {
                 foreach el $data {
@@ -425,6 +543,7 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         }
                     }
                 }
+                dict set ctximg $entity [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             leftYAxis - rightYAxis {
                 foreach el $data {
@@ -436,6 +555,7 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         }
                     }
                 }
+                dict set ctximg $entity [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
             xAxis {
                 foreach el $data {
@@ -447,14 +567,36 @@ proc graphy::drawEntities {ctx entities chart dictimg} {
                         }
                     }
                 }
+                dict set ctximg $entity [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
             }
-            barSeries - horizontalbarSeries - background {
+            barSeries - horizontalbarSeries {
                 foreach {type element} $data {
                     switch -exact $type {
                         roundedrect {lappend ctxpath $type [graphy::drawRoundedRect $ctx $element $chart]}
                         default     {error "'$type' not supported yet."}
                     }
                 }
+                set series [dict get [lindex $data 1] series]
+                dict set ctximg bar($series) [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
+            }
+            background {
+                foreach {type element} $data {
+                    switch -exact $type {
+                        roundedrect {lappend ctxpath $type [graphy::drawRoundedRect $ctx $element $chart]}
+                        default     {error "'$type' not supported yet."}
+                    }
+                }
+                dict set ctximg $entity [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
+            }
+            toolbox {
+                foreach {type element} $data {
+                    switch -exact $type {
+                        zoom - undo - restore - save {lappend ctxpath {*}[graphy::icon $ctx $element $chart $type]}
+                        default {error "'$type' not supported yet."}
+                    }
+                     dict set ctximg toolbox($type) [pix::img::copy [dict get [pix::ctx::get $ctx] image addr]]
+                }
+                    
             }
             default {error "'$entity' not supported yet."}
         }

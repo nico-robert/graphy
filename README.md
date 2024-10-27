@@ -66,3 +66,8 @@ Release :
     - Add horizontal and stacked bar series.
     - Add examples horizontal and stacked bar.
     - Cosmetic changes.
+*  **27-oct-2024** : 0.1b5
+    - Add X type value.
+    - Add toolbox utility (save image, zoom).
+    - Add example XAxis values + toolbox utility.
+    - Add clip path.

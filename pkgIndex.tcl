@@ -2,13 +2,15 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-package ifneeded graphy 1.0b4 [list apply {dir {
+package ifneeded graphy 1.0b5 [list apply {dir {
 
     source [file join $dir graphy.tcl]
     source [file join $dir charts.tcl]
     source [file join $dir utils.tcl]
     source [file join $dir box.tcl]
-    source [file join $dir series.tcl]
+    source [file join $dir lineseries.tcl]
+    source [file join $dir barseries.tcl]
+    source [file join $dir hbarseries.tcl]
     source [file join $dir canvas.tcl]
     source [file join $dir axis.tcl]
     source [file join $dir component.tcl]

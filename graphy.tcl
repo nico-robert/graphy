@@ -13,12 +13,17 @@
                 # Add horizontal and stacked bar series.
                 # Add examples horizontal and stacked bar.
                 # Cosmetic changes.
+# 27-oct-2024 : 1.0b5
+                # Add X type value.
+                # Add toolbox utility (save image, zoom).
+                # Add example XAxis values + toolbox utility.
+                # Add clip path.
 
 package require Tcl 8.6
 package require pix 0.3
 
 namespace eval graphy {
-    variable version              "1.0b4"
+    variable version              "1.0b5"
     variable upid
     variable tdir                 [file dirname [file normalize [info script]]]
     variable PI                   [expr {acos(-1)}]
